@@ -17,6 +17,10 @@ type Item struct {
 	Year int `form:"Year"`
 }
 
+type Finder struct {
+	Search string `form:Finder`
+}
+
 func Init(){
 	r, err := InitRedis()
 	fmt.Println(err)
@@ -29,13 +33,19 @@ func InitMartini(r* redis.Client){
 	 m := martini.Classic()
 	 m.Use(render.Renderer())
   	 m.Get("/", func(ren render.Render){
+  	 	fmt.Println(r.Cmd("smembers", "Stones"))
     	ren.HTML(200,"index", nil)
   	 })
 
   	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render) string{
   	 		newalbum := newAlbum(item.Band, item.Album, item.Members, item.Year)
-  	 		r.Cmd("sadd", "testfield", newalbum)
-  	 		return "FUN";
+  	 		fmt.Println(item.Band)
+  	 		r.Cmd("sadd", item.Band, newalbum)
+  	 		return "Album was append";
+  	 	})
+
+  	 m.Post("/", binding.Form(Finder{}), func(fnd Finder, ren render.Render) string{
+  	 		return fnd.Search;
   	 	})
   	 m.Run()
 }
