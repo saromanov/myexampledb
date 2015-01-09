@@ -37,19 +37,22 @@ func InitMartini(r* redis.Client){
     	ren.HTML(200,"index", nil)
   	 })
 
-  	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render) string{
+  	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render){
   	 		newalbum := newAlbum(item.Band, item.Album, item.Members, item.Year)
   	 		r.Cmd("sadd", item.Band, newalbum)
-  	 		return "Album was append";
+  	 		fmt.Println("Album was append")
+  	 		ren.HTML(200, "index", nil)
   	 	})
 
   	 m.Get("/find", func(ren render.Render){
   	 		ren.HTML(200, "find", nil)
   	 	})
 
-  	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render) string{
-  	 		fmt.Println(r.Cmd("smembers", fnd.Search))
-  	 		return fnd.Search;
+  	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
+  	 		results:= r.Cmd("smembers", fnd.Search);
+  	 		resp, _ := results.List()
+  	 		//newmap := map[string]interface{}{"results": results}
+  	 		ren.HTML(200, "find", resp)
   	 	})
 
   	 m.NotFound(func(ren render.Render){
