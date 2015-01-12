@@ -7,6 +7,7 @@ import (
 "github.com/go-martini/martini"
 "github.com/martini-contrib/render"
 "github.com/codegangsta/martini-contrib/binding"
+"strconv"
 )
 
 //Fields for the base
@@ -20,6 +21,7 @@ type Item struct {
 type Finder struct {
 	Search string `form:"Finder"`
 }
+
 
 func Init(){
 	r, err := InitRedis()
@@ -39,8 +41,7 @@ func InitMartini(r* redis.Client){
 
   	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render){
   	 		newalbum := newAlbum(item.Band, item.Album, item.Members, item.Year)
-  	 		r.Cmd("sadd", item.Band, newalbum)
-  	 		fmt.Println("Album was append")
+  	 		r.Cmd("hmset", item.Band, newalbum)
   	 		ren.HTML(200, "index", nil)
   	 	})
 
@@ -49,10 +50,17 @@ func InitMartini(r* redis.Client){
   	 	})
 
   	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
-  	 		results:= r.Cmd("smembers", fnd.Search);
-  	 		resp, _ := results.List()
-  	 		//newmap := map[string]interface{}{"results": results}
-  	 		ren.HTML(200, "find", resp)
+  	 		results, err:= r.Cmd("hgetall", fnd.Search).Hash()
+  	 		if err != nil {
+  	 			fmt.Println("This is error: ", err);
+  	 		}
+  	 		fmt.Println(results)
+  	 		//resp, _ := results.List()
+  	 		/*fmt.Println(resp)
+  	 		fmt.Println(r.Cmd("scard", fnd.Search))
+  	 		fmt.Println(r.Cmd("sinter", "Fun", fnd.Search))
+  	 		//newmap := map[string]interface{}{"results": results}*/
+  	 		//ren.HTML(200, "find", resp)
   	 	})
 
   	 m.NotFound(func(ren render.Render){
@@ -69,12 +77,12 @@ func closeRedis(r* redis.Client){
 	defer r.Close()
 }
 
-func newAlbum(band string, album string, members string, year int) Item {
-	return Item {
-		Band: band,
-		Album: album,
-		Members: members /*strings.Split(members, ",")*/,
-		Year: year,
+func newAlbum(band string, album string, members string, year int) map [string] string{
+	return map[string]string {
+		"Band": band,
+		"Album": album,
+		"Members": members /*strings.Split(members, ",")*/,
+		"Year": strconv.Itoa(year),
 	}
 }
 func getNames(item Item){
