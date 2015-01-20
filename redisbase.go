@@ -41,7 +41,10 @@ func InitMartini(r* redis.Client){
 
   	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render){
   	 		newalbum := newAlbum(item.Band, item.Album, item.Members, item.Year)
+  	 		fmt.Println(item.Band)
+  	 		fmt.Println(r.Cmd("type", item.Band))
   	 		r.Cmd("hmset", item.Band, newalbum)
+  	 		r.Cmd("sadd", "title:band" + " " + item.Band + '"')
   	 		ren.HTML(200, "index", nil)
   	 	})
 
@@ -49,12 +52,18 @@ func InitMartini(r* redis.Client){
   	 		ren.HTML(200, "find", nil)
   	 	})
 
+  	 //Get list of all bands
+  	 m.Get("/bands", func(ren render.Render){
+  	 	results, err:= r.Cmd("hgetall", fnd.Search).Hash()
+  	 	})
+
   	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
   	 		results, err:= r.Cmd("hgetall", fnd.Search).Hash()
-  	 		if err != nil {
-  	 			fmt.Println("This is error: ", err);
+  	 		value, _ := r.Cmd("smembers", "title:band" + fnd.Search).List()
+  	 		fmt.Println("title:" + fnd.Search, value)
+  	 		if err == nil {
+  	 			ren.HTML(200, "find", results)
   	 		}
-  	 		fmt.Println(results)
   	 		//resp, _ := results.List()
   	 		/*fmt.Println(resp)
   	 		fmt.Println(r.Cmd("scard", fnd.Search))
