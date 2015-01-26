@@ -8,6 +8,8 @@ import (
 "github.com/martini-contrib/render"
 "github.com/codegangsta/martini-contrib/binding"
 "strconv"
+"math/rand"
+"strings"
 )
 
 //Fields for the base
@@ -25,12 +27,13 @@ type Finder struct {
 
 func Init(){
 	r, err := InitRedis()
+	defer closeRedis(r)
+	rand.Seed( time.Now().UTC().UnixNano())
 	localstore := make([]Item,10)
 	fmt.Println(localstore)
 	if err == nil{
 		InitMartini(r)
 	}
-	closeRedis(r)
 }
 func InitMartini(r* redis.Client){
 	 m := martini.Classic()
@@ -43,10 +46,7 @@ func InitMartini(r* redis.Client){
   	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render){
   	 		newalbum := newAlbum(item.Band, item.Album, item.Members, item.Year)
   	 		fmt.Println(item.Band)
-  	 		fmt.Println(r.Cmd("type", item.Band))
-  	 		r.Cmd("hmset", item.Band, newalbum)
-  	 		r.Cmd("set", item.Band, newalbum)
-  	 		//r.Cmd("sadd", "title:band" + " " + item.Band + '"')
+  	 		r.Cmd("hmset", strings.ToLower(item.Band) + ":" + strconv.Itoa(rand.Int()), newalbum)
   	 		ren.HTML(200, "index", nil)
   	 	})
 
@@ -57,30 +57,19 @@ func InitMartini(r* redis.Client){
   	 //Get list of all bands
   	 m.Get("/bands", func(fnd Finder, ren render.Render){
   	 	results, err:= r.Cmd("hgetall", fnd.Search).Hash()
-  	 	if err == nil {
+  	 	if err != nil {
   	 		fmt.Println(results)
   	 	}
   	 	})
 
 
   	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
-  	 		results, err:= r.Cmd("hgetall", fnd.Search).Hash()
-  	 		value, _ := r.Cmd("smembers", "title:band" + fnd.Search).List()
-  	 		fmt.Println("title:" + fnd.Search, value)
-  	 		if err == nil {
-  	 			ren.HTML(200, "find", results)
-  	 		}
-  	 		results_cache, err2 := r.Cmd('get', fnd.Search)
-  	 		if err2 == nil {
-  	 			ren.HTML(200, "find", results)
-  	 		}
-  	 		fmt.Println(results_cache)
-  	 		//resp, _ := results.List()
-  	 		/*fmt.Println(resp)
-  	 		fmt.Println(r.Cmd("scard", fnd.Search))
-  	 		fmt.Println(r.Cmd("sinter", "Fun", fnd.Search))
-  	 		//newmap := map[string]interface{}{"results": results}*/
-  	 		//ren.HTML(200, "find", resp)
+  	 		resp, _ := r.Cmd("keys", "*" + strings.ToLower(fnd.Search) + "*").List()
+  	 		fmt.Println(resp, "*" + strings.ToLower(fnd.Search) + "*")
+  	 		ren.HTML(200, "find", map[string]interface{} {"results": resp})
+  	 		/*for _, artist := range resp {
+  	 			fmt.Println(artist);
+  	 		}*/
   	 	})
 
   	 m.NotFound(func(ren render.Render){
@@ -99,10 +88,10 @@ func closeRedis(r* redis.Client){
 
 func newAlbum(band string, album string, members string, year int) map [string] string{
 	return map[string]string {
-		"Band": band,
-		"Album": album,
-		"Members": members /*strings.Split(members, ",")*/,
-		"Year": strconv.Itoa(year),
+		"Band": strings.ToLower(band),
+		"Album": strings.ToLower(album),
+		"Members": strings.ToLower(members) /*strings.Split(members, ",")*/,
+		"Year": strings.ToLower(strconv.Itoa(year)),
 	}
 }
 func getNames(item Item){
