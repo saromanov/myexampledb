@@ -25,7 +25,8 @@ type Finder struct {
 
 func Init(){
 	r, err := InitRedis()
-	fmt.Println(err)
+	localstore := make([]Item,10)
+	fmt.Println(localstore)
 	if err == nil{
 		InitMartini(r)
 	}
@@ -44,7 +45,8 @@ func InitMartini(r* redis.Client){
   	 		fmt.Println(item.Band)
   	 		fmt.Println(r.Cmd("type", item.Band))
   	 		r.Cmd("hmset", item.Band, newalbum)
-  	 		r.Cmd("sadd", "title:band" + " " + item.Band + '"')
+  	 		r.Cmd("set", item.Band, newalbum)
+  	 		//r.Cmd("sadd", "title:band" + " " + item.Band + '"')
   	 		ren.HTML(200, "index", nil)
   	 	})
 
@@ -53,9 +55,13 @@ func InitMartini(r* redis.Client){
   	 	})
 
   	 //Get list of all bands
-  	 m.Get("/bands", func(ren render.Render){
+  	 m.Get("/bands", func(fnd Finder, ren render.Render){
   	 	results, err:= r.Cmd("hgetall", fnd.Search).Hash()
+  	 	if err == nil {
+  	 		fmt.Println(results)
+  	 	}
   	 	})
+
 
   	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
   	 		results, err:= r.Cmd("hgetall", fnd.Search).Hash()
@@ -64,6 +70,11 @@ func InitMartini(r* redis.Client){
   	 		if err == nil {
   	 			ren.HTML(200, "find", results)
   	 		}
+  	 		results_cache, err2 := r.Cmd('get', fnd.Search)
+  	 		if err2 == nil {
+  	 			ren.HTML(200, "find", results)
+  	 		}
+  	 		fmt.Println(results_cache)
   	 		//resp, _ := results.List()
   	 		/*fmt.Println(resp)
   	 		fmt.Println(r.Cmd("scard", fnd.Search))
