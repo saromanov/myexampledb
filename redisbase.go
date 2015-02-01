@@ -22,6 +22,10 @@ type Item struct {
 
 type Finder struct {
 	Search string `form:"Finder"`
+	c1 bool `form:"B"`
+	c2 bool `form:"album"`
+	c3 bool `form:"members"`
+	c4 bool `form:"year"`
 }
 
 
@@ -45,7 +49,6 @@ func InitMartini(r* redis.Client){
 
   	 m.Post("/", binding.Form(Item{}), func(item Item, ren render.Render){
   	 		newalbum := newAlbum(item.Band, item.Album, item.Members, item.Year)
-  	 		fmt.Println(item.Band)
   	 		r.Cmd("hmset", strings.ToLower(item.Band) + ":" + strconv.Itoa(rand.Int()), newalbum)
   	 		ren.HTML(200, "index", nil)
   	 	})
@@ -56,20 +59,22 @@ func InitMartini(r* redis.Client){
 
   	 //Get list of all bands
   	 m.Get("/bands", func(fnd Finder, ren render.Render){
-  	 	results, err:= r.Cmd("hgetall", fnd.Search).Hash()
-  	 	if err != nil {
-  	 		fmt.Println(results)
-  	 	}
+  	 	results, _:= r.Cmd("hgetall", fnd.Search).Hash()
+  	 	fmt.Println(results)
   	 	})
 
 
   	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
+  	 		if(len(fnd.Search) == 0)
+  	 			ren.HTML(200, "find", nil)
   	 		resp, _ := r.Cmd("keys", "*" + strings.ToLower(fnd.Search) + "*").List()
-  	 		fmt.Println(resp, "*" + strings.ToLower(fnd.Search) + "*")
-  	 		ren.HTML(200, "find", map[string]interface{} {"results": resp})
-  	 		/*for _, artist := range resp {
-  	 			fmt.Println(artist);
-  	 		}*/
+  	 		fmt.Println(len(resp))
+  	 		result := make([]string, len(resp))
+  	 		for i, artist := range resp {
+  	 			result[i] = r.Cmd("hmget", artist, "Album").String()
+  	 			//fmt.Println(r.Cmd("hgetall", artist).Hash());
+  	 		}
+  	 		ren.HTML(200, "find", map[string][]string {"results": result})
   	 	})
 
   	 m.NotFound(func(ren render.Render){

@@ -7,9 +7,13 @@
 
 <form action="/find" method="POST">
 	<input type="text" placeholder="Search in format Type:title" name="Finder" size=40/><br>
+	<input type="checkbox" name="B" value="c1"> Band
+	<input type="checkbox" name="album" value="c2"> Album
+	<input type="checkbox" name="members" value="c3"> Members
+	<input type="checkbox" name="year" value="c4"> Year <br>
 	<input type="submit" value="submit"/>
 </form>
 
 {{ range .results}}
-	<p> {{ .Band }} </p>
+	<p> {{ .}} </p>
 {{ end }}
