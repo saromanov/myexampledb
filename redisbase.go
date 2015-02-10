@@ -22,12 +22,21 @@ type Item struct {
 
 type Finder struct {
 	Search string `form:"Finder"`
-	c1 bool `form:"B"`
-	c2 bool `form:"album"`
-	c3 bool `form:"members"`
-	c4 bool `form:"year"`
 }
 
+
+func GetBands(r* redis.Client, target string)([]string, bool){
+	results, error:= r.Cmd("keys", target).List()
+	if error != nil {
+		return nil, false
+	}
+
+	result := make([]string, len(results))
+  	for i, artist := range results {
+  	 	result[i] = r.Cmd("hmget", artist, "Album").String()
+  	 }
+  	return result, true
+}
 
 func Init(){
 	r, err := InitRedis()
@@ -63,18 +72,15 @@ func InitMartini(r* redis.Client){
   	 	fmt.Println(results)
   	 	})
 
-
+  	 //Find bands by name, album or year
   	 m.Post("/find", binding.Form(Finder{}), func(fnd Finder, ren render.Render){
-  	 		if(len(fnd.Search) == 0)
+  	 		if(len(fnd.Search) == 0){
   	 			ren.HTML(200, "find", nil)
-  	 		resp, _ := r.Cmd("keys", "*" + strings.ToLower(fnd.Search) + "*").List()
-  	 		fmt.Println(len(resp))
-  	 		result := make([]string, len(resp))
-  	 		for i, artist := range resp {
-  	 			result[i] = r.Cmd("hmget", artist, "Album").String()
-  	 			//fmt.Println(r.Cmd("hgetall", artist).Hash());
   	 		}
-  	 		ren.HTML(200, "find", map[string][]string {"results": result})
+  	 		bands, ok := GetBands(r, "*" + strings.ToLower(fnd.Search) + "*")
+  	 		if ok {
+  	 			ren.HTML(200, "find", map[string][]string {"results": bands})
+  	 		}
   	 	})
 
   	 m.NotFound(func(ren render.Render){
